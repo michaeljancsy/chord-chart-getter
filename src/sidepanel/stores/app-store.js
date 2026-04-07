@@ -7,10 +7,9 @@ import { MSG } from '../../shared/messages.js';
 export const phase = signal(PHASE.DETECT);
 export const playlistName = signal('');
 export const tracks = signal([]);
-export const selectedTracks = signal(new Set()); // indices of selected tracks
+export const selectedTracks = signal(new Set());
 export const queue = signal([]);
 export const currentIndex = signal(-1);
-export const paused = signal(false);
 export const preferences = signal({ ...DEFAULT_PREFERENCES });
 export const error = signal(null);
 export const showPreferences = signal(false);
@@ -28,7 +27,7 @@ export const progress = computed(() => {
   const q = queue.value;
   return {
     total: q.length,
-    saved: q.filter((s) => s.status === SONG_STATUS.SAVED).length,
+    done: q.filter((s) => s.status === SONG_STATUS.DONE).length,
     skipped: q.filter((s) => s.status === SONG_STATUS.SKIPPED).length,
     current: currentIndex.value,
   };
@@ -105,33 +104,52 @@ export async function startProcessing() {
   }
 }
 
-export async function selectResult(resultData) {
-  await sendMessage({ type: MSG.SELECT_RESULT, payload: resultData });
+export async function openSearch(source) {
+  await sendMessage({ type: MSG.OPEN_SEARCH, payload: { source } });
 }
 
-export async function confirmSave(downloadChoice) {
-  await sendMessage({ type: MSG.CONFIRM_SAVE, payload: { downloadChoice } });
+export async function markDone() {
+  await sendMessage({ type: MSG.MARK_DONE });
 }
 
 export async function skipSong() {
   await sendMessage({ type: MSG.SKIP_SONG });
 }
 
-export async function tryAnother() {
-  await sendMessage({ type: MSG.TRY_ANOTHER });
+export async function goBack() {
+  await sendMessage({ type: MSG.GO_BACK });
 }
 
-export async function pauseProcessing() {
-  await sendMessage({ type: MSG.PAUSE_PROCESSING });
+export async function toggleStatus(index) {
+  await sendMessage({ type: MSG.TOGGLE_STATUS, payload: { index } });
 }
 
-export async function resumeProcessing() {
-  await sendMessage({ type: MSG.RESUME_PROCESSING });
+export async function goToSong(index) {
+  await sendMessage({ type: MSG.GO_TO_SONG, payload: { index } });
+}
+
+export async function startProcessingTracks(trackList) {
+  if (trackList.length === 0) return;
+  phase.value = PHASE.PROCESSING;
+  error.value = null;
+  await sendMessage({
+    type: MSG.START_PROCESSING,
+    payload: {
+      tracks: trackList,
+      playlistName: playlistName.value,
+      preferences: preferences.value,
+    },
+  });
+}
+
+export async function retrySong(index) {
+  const song = queue.value[index];
+  if (!song || song.status !== SONG_STATUS.SKIPPED) return;
+  await startProcessingTracks([{ title: song.title, artist: song.artist }]);
 }
 
 export function updatePreference(key, value) {
   preferences.value = { ...preferences.value, [key]: value };
-  // Persist preferences
   chrome.storage.sync.set({ preferences: preferences.value });
 }
 
@@ -142,9 +160,7 @@ chrome.runtime.onMessage.addListener((message) => {
     const state = message.payload;
     queue.value = state.queue || [];
     currentIndex.value = state.currentIndex ?? -1;
-    paused.value = state.paused ?? false;
 
-    // Auto-detect completion
     if (state.currentIndex >= state.queue?.length && state.queue?.length > 0) {
       phase.value = PHASE.COMPLETE;
     }

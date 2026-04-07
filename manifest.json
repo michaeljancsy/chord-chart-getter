@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Chord Chart Getter",
+  "name": "Playlists-to-Chord-Charts",
   "version": "1.0.0",
-  "description": "Find and download chord charts from your Spotify playlists",
+  "description": "Find chord charts from your music playlists on Spotify, Apple Music, YouTube Music, YouTube, and Tidal",
   "permissions": [
     "activeTab",
     "scripting",
@@ -14,6 +14,11 @@
   ],
   "host_permissions": [
     "https://open.spotify.com/*",
+    "https://music.apple.com/*",
+    "https://music.youtube.com/*",
+    "https://www.youtube.com/*",
+    "https://listen.tidal.com/*",
+    "https://tidal.com/*",
     "https://www.ultimate-guitar.com/*",
     "https://tabs.ultimate-guitar.com/*",
     "https://chordify.net/*",
@@ -27,10 +32,17 @@
     "default_path": "src/sidepanel/index.html"
   },
   "action": {
-    "default_title": "Chord Chart Getter"
+    "default_title": "Playlists-to-Chord-Charts",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
   "icons": {
     "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   }

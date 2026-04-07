@@ -17,7 +17,7 @@ export function App() {
   return (
     <div class="app">
       <header class="app-header">
-        <h1>Chord Chart Getter</h1>
+        <h1>Playlists-to-Chord-Charts</h1>
         <button
           class="icon-btn"
           title="Preferences"
@@ -52,7 +52,7 @@ function DetectView() {
   return (
     <div class="detect-view">
       <div class="detect-instructions">
-        <p>Open a playlist on <strong>open.spotify.com</strong>, then click the button below.</p>
+        <p>Open a playlist on Spotify, Apple Music, YouTube Music, YouTube, or Tidal, then click the button below.</p>
       </div>
       <button
         class="btn btn-primary btn-large"

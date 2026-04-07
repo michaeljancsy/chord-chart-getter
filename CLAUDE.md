@@ -1,4 +1,4 @@
-# Chord Chart Getter
+# Playlists-to-Chord-Charts
 
 Chrome extension (Manifest V3) that takes a Spotify playlist and helps the user serially find and download chord charts/tabs/sheet music from Ultimate Guitar, Chordify, and Songsterr.
 

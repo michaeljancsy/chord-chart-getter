@@ -108,5 +108,5 @@
   };
 
   // Send via message for reliable delivery
-  chrome.runtime.sendMessage({ type: 'spotify_playlist_result', payload: result });
+  chrome.runtime.sendMessage({ type: 'playlist_result', payload: result });
 })();

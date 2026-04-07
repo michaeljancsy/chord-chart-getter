@@ -2,24 +2,16 @@ export const SOURCES = {
   ULTIMATE_GUITAR: 'ultimate-guitar',
   CHORDIFY: 'chordify',
   SONGSTERR: 'songsterr',
-};
-
-export const CHART_TYPES = {
-  CHORDS: 'Chords',
-  TAB: 'Tab',
-  BASS: 'Bass Tab',
-  UKULELE: 'Ukulele',
+  MUSESCORE: 'musescore',
+  SHEET_MUSIC_DIRECT: 'sheet-music-direct',
+  YOUTUBE: 'youtube',
 };
 
 export const SONG_STATUS = {
   PENDING: 'pending',
-  SEARCHING: 'searching',
-  AWAITING_SELECTION: 'awaiting_selection',
-  AWAITING_CONFIRM: 'awaiting_confirm',
-  SAVING: 'saving',
-  SAVED: 'saved',
+  ACTIVE: 'active',
+  DONE: 'done',
   SKIPPED: 'skipped',
-  ERROR: 'error',
 };
 
 export const PHASE = {
@@ -36,19 +28,23 @@ export const SEARCH_URLS = {
     `https://chordify.net/search/${encodeURIComponent(query)}`,
   [SOURCES.SONGSTERR]: (query) =>
     `https://www.songsterr.com/?pattern=${encodeURIComponent(query)}`,
+  [SOURCES.MUSESCORE]: (query) =>
+    `https://musescore.com/sheetmusic?text=${encodeURIComponent(query)}`,
+  [SOURCES.SHEET_MUSIC_DIRECT]: (query) =>
+    `https://www.sheetmusicdirect.com/en-US/search.aspx?query=${encodeURIComponent(query)}`,
+  [SOURCES.YOUTUBE]: (query) =>
+    `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' chords tutorial')}`,
+};
+
+export const SOURCE_LABELS = {
+  [SOURCES.CHORDIFY]: 'Chordify',
+  [SOURCES.MUSESCORE]: 'Musescore',
+  [SOURCES.SHEET_MUSIC_DIRECT]: 'Sheet Music Direct',
+  [SOURCES.SONGSTERR]: 'Songsterr',
+  [SOURCES.ULTIMATE_GUITAR]: 'Ultimate Guitar',
+  [SOURCES.YOUTUBE]: 'YouTube',
 };
 
 export const DEFAULT_PREFERENCES = {
-  sources: [SOURCES.ULTIMATE_GUITAR, SOURCES.CHORDIFY, SOURCES.SONGSTERR],
-  chartType: 'all', // 'chords', 'tabs', 'all'
-  instrument: 'guitar', // 'guitar', 'bass', 'ukulele'
-  outputFormat: 'txt', // 'txt', 'pdf'
-  folderName: 'ChordCharts',
-  delayMode: 'normal', // 'cautious', 'normal', 'fast'
-};
-
-export const DELAY_CONFIGS = {
-  cautious: { searchMin: 4000, searchMax: 8000, pageMin: 5000, pageMax: 10000, betweenSongs: 15000 },
-  normal: { searchMin: 2000, searchMax: 5000, pageMin: 3000, pageMax: 6000, betweenSongs: 8000 },
-  fast: { searchMin: 1000, searchMax: 3000, pageMin: 2000, pageMax: 4000, betweenSongs: 4000 },
+  sources: Object.values(SOURCES),
 };

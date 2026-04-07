@@ -56,7 +56,7 @@ export function PlaylistView() {
           disabled={noneSelected}
           onClick={startProcessing}
         >
-          Start Processing ({selectedTracks.value.size} songs)
+          Start ({selectedTracks.value.size} songs)
         </button>
       </div>
     </div>

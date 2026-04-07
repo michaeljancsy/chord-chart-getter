@@ -7,7 +7,7 @@ export function ProgressBar({ current, total, saved }) {
         <div class="progress-fill" style={{ width: `${pct}%` }} />
       </div>
       <div class="progress-label">
-        Song {Math.min(current + 1, total)} of {total} &middot; {saved} saved
+        Song {Math.min(current + 1, total)} of {total} &middot; {saved} done
       </div>
     </div>
   );

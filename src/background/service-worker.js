@@ -7,7 +7,8 @@ const queueManager = new QueueManager();
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-// --- Keepalive for MV3 service worker ---
+// --- Keepalive ---
+// MV3 service workers go inactive after ~30s. Keep alive while processing.
 
 function startKeepalive() {
   chrome.alarms.create('keepalive', { periodInMinutes: 0.4 });
@@ -17,10 +18,8 @@ function stopKeepalive() {
   chrome.alarms.clear('keepalive');
 }
 
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'keepalive') {
-    // no-op — keeps the worker alive
-  }
+chrome.alarms.onAlarm.addListener(() => {
+  // no-op — just keeps the worker alive
 });
 
 // --- Broadcast state to side panel ---
@@ -31,9 +30,19 @@ function broadcastToSidePanel(message) {
   });
 }
 
-queueManager.onStateChange = (state) => {
+function onStateChange(state) {
   broadcastToSidePanel({ type: MSG.STATE_UPDATE, payload: state });
-};
+}
+
+queueManager.onStateChange = onStateChange;
+
+// --- Restore state on service worker restart ---
+
+async function ensureRestored() {
+  if (queueManager.queue.length === 0) {
+    await queueManager.restore(onStateChange);
+  }
+}
 
 // --- Message Handler ---
 
@@ -41,57 +50,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender).then(sendResponse).catch((err) => {
     sendResponse({ error: err.message });
   });
-  return true; // keep channel open for async response
+  return true;
 });
 
 async function handleMessage(message, sender) {
+  // Restore state if the service worker restarted
+  await ensureRestored();
+
   switch (message.type) {
     case MSG.DETECT_PLAYLIST:
       return await detectPlaylist();
 
     case MSG.START_PROCESSING:
-      return await startProcessing(message.payload);
+      startKeepalive();
+      return startProcessing(message.payload);
 
-    case MSG.SELECT_RESULT:
-      await queueManager.selectResult(message.payload);
+    case MSG.OPEN_SEARCH:
+      await queueManager.openSearch(message.payload.source);
       return { ok: true };
 
-    case MSG.CONFIRM_SAVE:
-      await queueManager.confirmSave(message.payload?.downloadChoice);
+    case MSG.MARK_DONE:
+      queueManager.markDone();
+      if (!queueManager.isActive()) stopKeepalive();
       return { ok: true };
 
     case MSG.SKIP_SONG:
       queueManager.skipSong();
+      if (!queueManager.isActive()) stopKeepalive();
       return { ok: true };
 
-    case MSG.TRY_ANOTHER:
-      queueManager.tryAnother();
+    case MSG.GO_BACK:
+      queueManager.goBack();
       return { ok: true };
 
-    case MSG.PAUSE_PROCESSING:
-      queueManager.pause();
-      stopKeepalive();
-      return { ok: true };
-
-    case MSG.RESUME_PROCESSING:
-      queueManager.resume();
+    case MSG.GO_TO_SONG:
+      queueManager.goToSong(message.payload.index);
       startKeepalive();
       return { ok: true };
 
-    // Content scripts send their extraction results via this message type
-    case 'extractor_result':
-      queueManager.handleExtractorResult(message);
+    case MSG.TOGGLE_STATUS:
+      queueManager.toggleStatus(message.payload.index);
       return { ok: true };
 
-    case 'spotify_playlist_result':
-      if (_spotifyResolve) {
-        _spotifyResolve(message.payload);
-        _spotifyResolve = null;
+    case 'playlist_result':
+      if (_extractorResolve) {
+        _extractorResolve(message.payload);
+        _extractorResolve = null;
       }
-      return { ok: true };
-
-    case 'ug_print_result':
-      queueManager.handlePrintResult(message);
       return { ok: true };
 
     default:
@@ -101,45 +106,62 @@ async function handleMessage(message, sender) {
 
 // --- Detect Playlist ---
 
-async function detectPlaylist() {
-  // Find the active Spotify tab
-  const [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-    url: 'https://open.spotify.com/*',
-  });
+const PLATFORM_PATTERNS = [
+  { url: 'https://open.spotify.com/*', script: 'spotify-extractor.js', name: 'Spotify' },
+  { url: 'https://music.apple.com/*', script: 'apple-music-extractor.js', name: 'Apple Music' },
+  { url: 'https://music.youtube.com/*', script: 'youtube-music-extractor.js', name: 'YouTube Music' },
+  { url: 'https://www.youtube.com/*', script: 'youtube-extractor.js', name: 'YouTube' },
+  { url: 'https://listen.tidal.com/*', script: 'tidal-extractor.js', name: 'Tidal' },
+  { url: 'https://tidal.com/*', script: 'tidal-extractor.js', name: 'Tidal' },
+];
 
-  if (!tab) {
-    // Try any Spotify tab
-    const tabs = await chrome.tabs.query({ url: 'https://open.spotify.com/*' });
-    if (tabs.length === 0) {
-      return { error: 'No Spotify tab found. Please open a playlist on open.spotify.com.' };
+async function detectPlaylist() {
+  // First check the active tab
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  if (activeTab) {
+    for (const platform of PLATFORM_PATTERNS) {
+      if (matchesPattern(activeTab.url, platform.url)) {
+        return await injectExtractor(activeTab.id, platform.script);
+      }
     }
-    return await injectSpotifyExtractor(tabs[0].id);
   }
 
-  return await injectSpotifyExtractor(tab.id);
+  // Fall back to searching all tabs for any supported platform
+  for (const platform of PLATFORM_PATTERNS) {
+    const tabs = await chrome.tabs.query({ url: platform.url });
+    if (tabs.length > 0) {
+      return await injectExtractor(tabs[0].id, platform.script);
+    }
+  }
+
+  const supported = [...new Set(PLATFORM_PATTERNS.map((p) => p.name))].join(', ');
+  return { error: `No supported music tab found. Open a playlist on: ${supported}` };
 }
 
-// Pending resolver for Spotify playlist extraction
-let _spotifyResolve = null;
+function matchesPattern(url, pattern) {
+  if (!url) return false;
+  const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+  return regex.test(url);
+}
 
-async function injectSpotifyExtractor(tabId) {
+let _extractorResolve = null;
+
+async function injectExtractor(tabId, scriptFile) {
   try {
-    // Set up a promise that resolves when the content script sends its result
     const resultPromise = new Promise((resolve) => {
-      _spotifyResolve = resolve;
+      _extractorResolve = resolve;
       setTimeout(() => {
-        if (_spotifyResolve === resolve) {
-          _spotifyResolve = null;
+        if (_extractorResolve === resolve) {
+          _extractorResolve = null;
           resolve(null);
         }
-      }, 30000); // 30s timeout for large playlists with scrolling
+      }, 30000);
     });
 
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ['spotify-extractor.js'],
+      files: [scriptFile],
     });
 
     const data = await resultPromise;
@@ -148,23 +170,19 @@ async function injectSpotifyExtractor(tabId) {
     }
     return data;
   } catch (err) {
-    _spotifyResolve = null;
-    return { error: `Failed to read Spotify page: ${err.message}` };
+    _extractorResolve = null;
+    return { error: `Failed to read page: ${err.message}` };
   }
 }
 
 // --- Start Processing ---
 
-async function startProcessing({ tracks, playlistName, preferences }) {
-  startKeepalive();
+function startProcessing({ tracks, playlistName, preferences }) {
   queueManager.init({
     tracks,
     playlistName,
     preferences,
-    onStateChange: (state) => {
-      broadcastToSidePanel({ type: MSG.STATE_UPDATE, payload: state });
-    },
+    onStateChange,
   });
-  queueManager.processNext();
   return { ok: true };
 }
