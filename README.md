@@ -4,6 +4,10 @@ Chrome extension that extracts playlists from music streaming services and helps
 
 Open a playlist, click the extension, and step through each song with one-click search buttons for multiple chart providers.
 
+![Detect and select tracks from a Spotify playlist](assets/screenshots/playlist-select.png)
+
+![Step through songs with search buttons and queue](assets/screenshots/workflow.png)
+
 ## Supported Playlist Sources
 
 - Spotify
