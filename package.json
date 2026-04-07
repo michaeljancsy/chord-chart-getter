@@ -1,0 +1,19 @@
+{
+  "name": "chord-chart-getter",
+  "version": "1.0.0",
+  "description": "Chrome extension to find chord charts from Spotify playlists",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.5",
+    "vite": "^8.0.5"
+  },
+  "dependencies": {
+    "@preact/signals": "^2.9.0",
+    "jspdf": "^4.2.1",
+    "preact": "^10.29.1"
+  }
+}
